@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34408.163
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DomusApi", "DomusApi\DomusApi.csproj", "{BB42EC1D-1EFA-49A5-826F-A3256B73AA4F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DomusApiTests", "DomusApiTests\DomusApiTests.csproj", "{281F9C4E-1F2A-46AF-8C5B-BB4BA766AE6E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BB42EC1D-1EFA-49A5-826F-A3256B73AA4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB42EC1D-1EFA-49A5-826F-A3256B73AA4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB42EC1D-1EFA-49A5-826F-A3256B73AA4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB42EC1D-1EFA-49A5-826F-A3256B73AA4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{281F9C4E-1F2A-46AF-8C5B-BB4BA766AE6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{281F9C4E-1F2A-46AF-8C5B-BB4BA766AE6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{281F9C4E-1F2A-46AF-8C5B-BB4BA766AE6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{281F9C4E-1F2A-46AF-8C5B-BB4BA766AE6E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {53093EE1-8035-4762-B22F-631C9E8FEAA4}
+	EndGlobalSection
+EndGlobal

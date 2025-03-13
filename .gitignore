@@ -1,0 +1,6 @@
+.vs/
+/DomusApi/Properties/launchSettings.json
+/DomusApi/bin/*
+/DomusApi/obj/*
+/DomusApiTests/bin/*
+/DomusApiTests/obj/*
