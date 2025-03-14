@@ -52,7 +52,8 @@ namespace DomusApi.Helpers
         {
             await InitializeCachedValuesAsync();
 
-            List<DomusRoom> result = new List<DomusRoom>();
+            Dictionary<string, DomusRoom> rooms = new Dictionary<string, DomusRoom>();
+            HashSet<Guid> processedRoomChildren = new HashSet<Guid>();
 
             foreach (Guid roomId in roomsCache.Keys)
             {
@@ -65,14 +66,22 @@ namespace DomusApi.Helpers
                     if (devicesCache.TryGetValue(resourceIdentifier.Rid, out Device? device))
                     {
                         domusDevices.Add(GetAsDomusDevice(device));
+                        processedRoomChildren.Add(device.Id);
                     }
                 }
 
                 DomusRoom domusRoom = new DomusRoom(roomId, name, domusDevices);
-                result.Add(domusRoom);
+                rooms.Add(domusRoom.Name, domusRoom);
             }
 
-            return result;
+            foreach (Guid deviceId in devicesCache.Keys)
+            {
+                if (processedRoomChildren.Contains(deviceId)) continue;
+
+                DomusDevice domusDevice = GetAsDomusDevice(devicesCache[deviceId]);
+            }
+
+            return rooms.Values.ToList();
         }
 
         private DomusDevice GetAsDomusDevice(Device device)
@@ -99,6 +108,10 @@ namespace DomusApi.Helpers
 
                     DomusLight domusLight = new DomusLight(id, deviceName ?? "Unknown light", connectionStatus, domusDeviceMetadata, light.On.IsOn, light.Id);
                     return domusLight;
+                }
+                else if (IsButton(device, out List<ButtonResource>? buttonResources))
+                {
+
                 }
                 else
                 {
@@ -148,6 +161,33 @@ namespace DomusApi.Helpers
 
             light = null;
             return false;
+        }
+
+        private bool IsButton(Device device, out List<ButtonResource>? buttonResources)
+        {
+            buttonResources = GetAllResourcesOfType<ButtonResource>(device.Services);
+
+            return buttonResources.Count > 0;
+        }
+
+        private List<T> GetAllResourcesOfType<T>(List<ResourceIdentifier>? identifiers)
+        {
+            List<T> result = new List<T>();
+
+            if (identifiers == null) return result;
+
+            if (typeof(T) == typeof(ButtonResource))
+            {
+                foreach (ResourceIdentifier resource in identifiers)
+                {
+                    if (EnumStringMapper<ResourceType>.GetEnum(resource.Rtype) == ResourceType.Button)
+                    {
+                        result.Add((T)(object)buttonsCache[resource.Rid]);
+                    }
+                }
+            }
+
+            return result;
         }
     }
 }
