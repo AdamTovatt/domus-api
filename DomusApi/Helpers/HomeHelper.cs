@@ -18,6 +18,7 @@ namespace DomusApi.Helpers
         private ConcurrentDictionary<Guid, MotionResource> motionSensorsCache = new ConcurrentDictionary<Guid, MotionResource>();
         private ConcurrentDictionary<Guid, ZigbeeConnectivity> zigbeeConnectivityCache = new ConcurrentDictionary<Guid, ZigbeeConnectivity>();
         private ConcurrentDictionary<Guid, LightLevel> lightLevelsCache = new ConcurrentDictionary<Guid, LightLevel>();
+        private ConcurrentDictionary<Guid, TemperatureResource> temperatureCache = new ConcurrentDictionary<Guid, TemperatureResource>();
 
         public HomeHelper(LocalHueApi hueApi)
         {
@@ -34,6 +35,7 @@ namespace DomusApi.Helpers
             HueResponse<MotionResource> motionsResponse = await hueApi.GetMotionsAsync();
             HueResponse<ZigbeeConnectivity> zigbeeResponse = await hueApi.GetZigbeeConnectivityAsync();
             HueResponse<LightLevel> lightLevelResponse = await hueApi.GetLightLevelsAsync();
+            HueResponse<TemperatureResource> temperatureResponse = await hueApi.GetTemperaturesAsync();
 
             roomsCache = new ConcurrentDictionary<Guid, Room>(roomsResponse.Data.ToDictionary(r => r.Id, r => r));
             devicesCache = new ConcurrentDictionary<Guid, Device>(devicesResponse.Data.ToDictionary(d => d.Id, d => d));
@@ -43,6 +45,7 @@ namespace DomusApi.Helpers
             motionSensorsCache = new ConcurrentDictionary<Guid, MotionResource>(motionsResponse.Data.ToDictionary(m => m.Id, m => m));
             zigbeeConnectivityCache = new ConcurrentDictionary<Guid, ZigbeeConnectivity>(zigbeeResponse.Data.ToDictionary(z => z.Id, z => z));
             lightLevelsCache = new ConcurrentDictionary<Guid, LightLevel>(lightLevelResponse.Data.ToDictionary(l => l.Id, l => l));
+            temperatureCache = new ConcurrentDictionary<Guid, TemperatureResource>(temperatureResponse.Data.ToDictionary(t => t.Id, t => t));
         }
 
         public async Task<List<DomusRoom>> GetRoomsAsync()
