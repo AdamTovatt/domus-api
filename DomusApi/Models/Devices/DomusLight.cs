@@ -8,11 +8,11 @@ namespace DomusApi.Models.Devices
 
         public DomusLight(
             Guid id,
-            string name,
+            string? name,
             ConnectionStatus connectionStatus,
             DomusDeviceMetadata metadata,
             bool isOn,
-            Guid lightServiceId) : base(id, name, connectionStatus, metadata)
+            Guid lightServiceId) : base(id, name ?? "Unknown light", connectionStatus, metadata)
         {
             IsOn = isOn;
             LightServiceId = lightServiceId;

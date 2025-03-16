@@ -2,7 +2,7 @@
 using System.Reflection;
 using System.Runtime.Serialization;
 
-namespace DomusApi.Helpers
+namespace DomusApi.Helpers.Enums
 {
     public class EnumStringMapper<T>
         where T : struct, Enum
@@ -30,7 +30,7 @@ namespace DomusApi.Helpers
             if (attribute == null)
                 throw new InvalidOperationException($"The enum value '{enumValue}' of type '{typeof(T).Name}' is missing a [PgName] attribute.");
 
-            if(attribute.Value == null)
+            if (attribute.Value == null)
                 throw new InvalidDataException($"The enum value '{enumValue}' of tpe '{typeof(T).Name}' is missing a defined value for the EnumMemberAttribute that is on it.");
 
             return attribute.Value;

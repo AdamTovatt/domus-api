@@ -1,4 +1,5 @@
-﻿using DomusApi.Models.Devices;
+﻿using DomusApi.Helpers.Enums;
+using DomusApi.Models.Devices;
 using HueApi;
 using HueApi.Models;
 using HueApi.Models.Sensors;
@@ -8,17 +9,8 @@ namespace DomusApi.Helpers
 {
     public class HomeHelper
     {
-        private LocalHueApi hueApi;
-
-        private ConcurrentDictionary<Guid, Room> roomsCache = new ConcurrentDictionary<Guid, Room>();
-        private ConcurrentDictionary<Guid, Device> devicesCache = new ConcurrentDictionary<Guid, Device>();
-        private ConcurrentDictionary<Guid, HueApi.Models.Light> lightsCache = new ConcurrentDictionary<Guid, HueApi.Models.Light>();
-        private ConcurrentDictionary<Guid, ButtonResource> buttonsCache = new ConcurrentDictionary<Guid, ButtonResource>();
-        private ConcurrentDictionary<Guid, ContactSensor> contactSensorsCache = new ConcurrentDictionary<Guid, ContactSensor>();
-        private ConcurrentDictionary<Guid, MotionResource> motionSensorsCache = new ConcurrentDictionary<Guid, MotionResource>();
-        private ConcurrentDictionary<Guid, ZigbeeConnectivity> zigbeeConnectivityCache = new ConcurrentDictionary<Guid, ZigbeeConnectivity>();
-        private ConcurrentDictionary<Guid, LightLevel> lightLevelsCache = new ConcurrentDictionary<Guid, LightLevel>();
-        private ConcurrentDictionary<Guid, TemperatureResource> temperatureCache = new ConcurrentDictionary<Guid, TemperatureResource>();
+        private readonly LocalHueApi hueApi;
+        private readonly CacheManager cacheManager = new();
 
         public HomeHelper(LocalHueApi hueApi)
         {
@@ -27,30 +19,39 @@ namespace DomusApi.Helpers
 
         private async Task InitializeCachedValuesAsync()
         {
-            HueResponse<Room> roomsResponse = await hueApi.GetRoomsAsync();
-            HueResponse<Device> devicesResponse = await hueApi.GetDevicesAsync();
-            HueResponse<HueApi.Models.Light> lightsResponse = await hueApi.GetLightsAsync();
-            HueResponse<ButtonResource> buttonsResponse = await hueApi.GetButtonsAsync();
-            HueResponse<ContactSensor> contactSensorsResponse = await hueApi.GetContactSensorsAsync();
-            HueResponse<MotionResource> motionsResponse = await hueApi.GetMotionsAsync();
-            HueResponse<ZigbeeConnectivity> zigbeeResponse = await hueApi.GetZigbeeConnectivityAsync();
-            HueResponse<LightLevel> lightLevelResponse = await hueApi.GetLightLevelsAsync();
-            HueResponse<TemperatureResource> temperatureResponse = await hueApi.GetTemperaturesAsync();
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetRoomsAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetDevicesAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetLightsAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetButtonsAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetContactSensorsAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetMotionsAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetZigbeeConnectivityAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetLightLevelsAsync()));
+            cacheManager.AddCache(await LoadCacheAsync(hueApi.GetTemperaturesAsync()));
+        }
 
-            roomsCache = new ConcurrentDictionary<Guid, Room>(roomsResponse.Data.ToDictionary(r => r.Id, r => r));
-            devicesCache = new ConcurrentDictionary<Guid, Device>(devicesResponse.Data.ToDictionary(d => d.Id, d => d));
-            lightsCache = new ConcurrentDictionary<Guid, HueApi.Models.Light>(lightsResponse.Data.ToDictionary(l => l.Id, l => l));
-            buttonsCache = new ConcurrentDictionary<Guid, ButtonResource>(buttonsResponse.Data.ToDictionary(b => b.Id, b => b));
-            contactSensorsCache = new ConcurrentDictionary<Guid, ContactSensor>(contactSensorsResponse.Data.ToDictionary(c => c.Id, c => c));
-            motionSensorsCache = new ConcurrentDictionary<Guid, MotionResource>(motionsResponse.Data.ToDictionary(m => m.Id, m => m));
-            zigbeeConnectivityCache = new ConcurrentDictionary<Guid, ZigbeeConnectivity>(zigbeeResponse.Data.ToDictionary(z => z.Id, z => z));
-            lightLevelsCache = new ConcurrentDictionary<Guid, LightLevel>(lightLevelResponse.Data.ToDictionary(l => l.Id, l => l));
-            temperatureCache = new ConcurrentDictionary<Guid, TemperatureResource>(temperatureResponse.Data.ToDictionary(t => t.Id, t => t));
+        private async Task<ConcurrentDictionary<Guid, T>> LoadCacheAsync<T>(Task<HueResponse<T>> apiCall) where T : HueResource
+        {
+            HueResponse<T> response = await apiCall;
+            return new ConcurrentDictionary<Guid, T>(response.Data.ToDictionary(item => item.Id, item => item));
+        }
+
+        public ConcurrentDictionary<Guid, T>? GetCache<T>() where T : class
+        {
+            return cacheManager.GetCache<T>();
         }
 
         public async Task<List<DomusRoom>> GetRoomsAsync()
         {
             await InitializeCachedValuesAsync();
+
+            ConcurrentDictionary<Guid, Room>? roomsCache = GetCache<Room>();
+            ConcurrentDictionary<Guid, Device>? devicesCache = GetCache<Device>();
+
+            if (roomsCache == null || devicesCache == null)
+            {
+                throw new InvalidOperationException("Caches have not been initialized.");
+            }
 
             Dictionary<string, DomusRoom> rooms = new Dictionary<string, DomusRoom>();
             HashSet<Guid> processedRoomChildren = new HashSet<Guid>();
@@ -98,18 +99,22 @@ namespace DomusApi.Helpers
                     if (light == null)
                         throw new InvalidDataException($"Device with name {deviceName} and id {device.Id} was said to be light but the light service type was unexpectedly null");
 
-                    if (light.Metadata != null)
-                    {
-                        if (domusDeviceMetadata.AssignedIcon == null)
-                            domusDeviceMetadata.AssignedIcon = light.Metadata.Archetype;
+                    PatchDomusDeviceMetadata(domusDeviceMetadata, ref deviceName, light);
 
-                        deviceName = light.Metadata.Name;
-                    }
-
-                    DomusLight domusLight = new DomusLight(id, deviceName ?? "Unknown light", connectionStatus, domusDeviceMetadata, light.On.IsOn, light.Id);
+                    DomusLight domusLight = new DomusLight(id, deviceName, connectionStatus, domusDeviceMetadata, light.On.IsOn, light.Id);
                     return domusLight;
                 }
-                else if (IsButton(device, out List<ButtonResource>? buttonResources))
+                else if (IsButtonPad(device, out List<ButtonResource>? buttonResources))
+                {
+                    if (buttonResources == null || buttonResources.Count == 0)
+                        throw new InvalidDataException($"Device with name {deviceName} and id {device.Id} was said to be button but the button service(s) type was unexpectedly missing");
+
+                    List<DomusSubButton> subButtons = GetSubButtons(buttonResources);
+
+                    DomusButtonPad domusButton = new DomusButtonPad(id, deviceName, connectionStatus, domusDeviceMetadata, subButtons);
+                    return domusButton;
+                }
+                else if (IsMotionDetector(device, out MotionResource? motionResource))
                 {
 
                 }
@@ -124,19 +129,56 @@ namespace DomusApi.Helpers
             throw new NotImplementedException();
         }
 
+        private List<DomusSubButton> GetSubButtons(List<ButtonResource> buttonResources)
+        {
+            List<DomusSubButton> result = new List<DomusSubButton>();
+
+            foreach (ButtonResource buttonResource in buttonResources)
+            {
+                DomusSubButton subButton = new DomusSubButton(buttonResource.Id, buttonResource?.Button?.ButtonReport?.Updated);
+                result.Add(subButton);
+            }
+
+            return result;
+        }
+
+        private void PatchDomusDeviceMetadata(DomusDeviceMetadata domusDeviceMetadata, ref string? deviceName, HueResource? resourceIdentifier)
+        {
+            if (resourceIdentifier == null || resourceIdentifier.Metadata == null) return;
+
+            if (domusDeviceMetadata.AssignedIcon == null)
+                domusDeviceMetadata.AssignedIcon = resourceIdentifier.Metadata.Archetype;
+
+            deviceName = resourceIdentifier.Metadata.Name;
+        }
+
         private ConnectionStatus GetConnectionStatusForDevice(Device device)
         {
-            ResourceIdentifier? zigbeeService = device.Services?.FirstOrDefault(x => EnumStringMapper<ResourceType>.GetEnum(x.Rtype) == ResourceType.ZigbeeConnectivity);
+            ResourceIdentifier? zigbeeService = device.Services?.FirstOrDefault(
+                (ResourceIdentifier x) => EnumStringMapper<ResourceType>.GetEnum(x.Rtype) == ResourceType.ZigbeeConnectivity);
 
             if (zigbeeService == null)
+            {
                 return ConnectionStatus.Unknown;
+            }
+
+            ConcurrentDictionary<Guid, ZigbeeConnectivity>? zigbeeConnectivityCache = GetCache<ZigbeeConnectivity>();
+
+            if (zigbeeConnectivityCache == null)
+            {
+                throw new InvalidOperationException("ZigbeeConnectivity cache has not been initialized.");
+            }
 
             if (zigbeeConnectivityCache.TryGetValue(zigbeeService.Rid, out ZigbeeConnectivity? connectivity))
             {
                 if (connectivity.Status == ConnectivityStatus.connected)
+                {
                     return ConnectionStatus.Connected;
+                }
                 else if (connectivity.Status == ConnectivityStatus.disconnected)
+                {
                     return ConnectionStatus.Disconnected;
+                }
             }
 
             return ConnectionStatus.Unknown;
@@ -150,12 +192,22 @@ namespace DomusApi.Helpers
                 return false;
             }
 
+            ConcurrentDictionary<Guid, HueApi.Models.Light>? lightsCache = GetCache<HueApi.Models.Light>();
+
+            if (lightsCache == null)
+            {
+                throw new InvalidOperationException("Lights cache has not been initialized.");
+            }
+
             foreach (ResourceIdentifier service in device.Services)
             {
                 if (EnumStringMapper<ResourceType>.GetEnum(service.Rtype) == ResourceType.Light)
                 {
-                    light = lightsCache[service.Rid];
-                    return true;
+                    if (lightsCache.TryGetValue(service.Rid, out HueApi.Models.Light? foundLight))
+                    {
+                        light = foundLight;
+                        return true;
+                    }
                 }
             }
 
@@ -163,31 +215,72 @@ namespace DomusApi.Helpers
             return false;
         }
 
-        private bool IsButton(Device device, out List<ButtonResource>? buttonResources)
+        private bool IsButtonPad(Device device, out List<ButtonResource>? buttonResources)
         {
             buttonResources = GetAllResourcesOfType<ButtonResource>(device.Services);
 
             return buttonResources.Count > 0;
         }
 
-        private List<T> GetAllResourcesOfType<T>(List<ResourceIdentifier>? identifiers)
+        private bool IsMotionDetector(Device device, out MotionResource? motionResource)
+        {
+            motionResource = GetFirstResourceOfType<MotionResource>(device.Services);
+
+            return motionResource != null;
+        }
+
+        private List<T> GetAllResourcesOfType<T>(List<ResourceIdentifier>? identifiers) where T : HueResource
         {
             List<T> result = new List<T>();
 
-            if (identifiers == null) return result;
+            if (identifiers == null)
+                return result;
 
-            if (typeof(T) == typeof(ButtonResource))
+            ResourceType? expectedResourceType = EnumTypeMapper<ResourceType>.GetEnumFromType(typeof(T));
+
+            if (expectedResourceType == null)
+                throw new NotImplementedException($"Getting all resources of type {typeof(T).Name} is not supported.");
+
+            ConcurrentDictionary<Guid, T>? resourceCache = GetCache<T>();
+
+            if (resourceCache == null)
+                throw new InvalidOperationException($"Cache for {typeof(T).Name} has not been initialized.");
+
+            foreach (ResourceIdentifier resource in identifiers)
             {
-                foreach (ResourceIdentifier resource in identifiers)
+                if (EnumStringMapper<ResourceType>.GetEnum(resource.Rtype) == expectedResourceType)
                 {
-                    if (EnumStringMapper<ResourceType>.GetEnum(resource.Rtype) == ResourceType.Button)
+                    if (resourceCache.TryGetValue(resource.Rid, out T? resourceItem))
                     {
-                        result.Add((T)(object)buttonsCache[resource.Rid]);
+                        result.Add(resourceItem);
                     }
                 }
             }
 
             return result;
+        }
+
+        private T? GetFirstResourceOfType<T>(List<ResourceIdentifier>? identifiers) where T : HueResource
+        {
+            if (identifiers == null || identifiers.Count == 0)
+                return null;
+
+            ResourceType? expectedResourceType = EnumTypeMapper<ResourceType>.GetEnumFromType(typeof(T));
+
+            if (expectedResourceType == null)
+                throw new NotImplementedException($"Getting first resource of type {typeof(T).Name} is not supported.");
+
+            ConcurrentDictionary<Guid, T>? resourceCache = GetCache<T>();
+
+            if (resourceCache == null)
+                throw new InvalidOperationException($"Cache for {typeof(T).Name} has not been initialized.");
+
+            foreach (ResourceIdentifier resource in identifiers)
+                if (EnumStringMapper<ResourceType>.GetEnum(resource.Rtype) == expectedResourceType)
+                    if (resourceCache.TryGetValue(resource.Rid, out T? resourceItem))
+                        return resourceItem;
+
+            return null;
         }
     }
 }

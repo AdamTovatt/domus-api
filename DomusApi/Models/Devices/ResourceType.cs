@@ -1,4 +1,7 @@
-﻿using System.Runtime.Serialization;
+﻿using DomusApi.Helpers.Enums;
+using HueApi.Models;
+using HueApi.Models.Sensors;
+using System.Runtime.Serialization;
 
 namespace DomusApi.Models.Devices
 {
@@ -19,21 +22,26 @@ namespace DomusApi.Models.Devices
         [EnumMember(Value = "service_group")]
         ServiceGroup,
 
+        [EnumType(typeof(HueApi.Models.Light))]
         [EnumMember(Value = "light")]
         Light,
 
+        [EnumType(typeof(ButtonResource))]
         [EnumMember(Value = "button")]
         Button,
 
         [EnumMember(Value = "relative_rotary")]
         RelativeRotary,
 
+        [EnumType(typeof(TemperatureResource))]
         [EnumMember(Value = "temperature")]
         Temperature,
 
+        [EnumType(typeof(LightLevel))]
         [EnumMember(Value = "light_level")]
         LightLevel,
 
+        [EnumType(typeof(MotionResource))]
         [EnumMember(Value = "motion")]
         Motion,
 
@@ -43,6 +51,7 @@ namespace DomusApi.Models.Devices
         [EnumMember(Value = "entertainment")]
         Entertainment,
 
+        [EnumType(typeof(ContactSensor))]
         [EnumMember(Value = "contact")]
         Contact,
 
@@ -58,12 +67,14 @@ namespace DomusApi.Models.Devices
         [EnumMember(Value = "grouped_light_level")]
         GroupedLightLevel,
 
+        [EnumType(typeof(DevicePower))]
         [EnumMember(Value = "device_power")]
         DevicePower,
 
         [EnumMember(Value = "device_software_update")]
         DeviceSoftwareUpdate,
 
+        [EnumType(typeof(ZigbeeConnectivity))]
         [EnumMember(Value = "zigbee_connectivity")]
         ZigbeeConnectivity,
 
